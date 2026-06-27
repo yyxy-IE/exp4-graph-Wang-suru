@@ -5,12 +5,12 @@
  * 运行：./metro
  */
 
+#include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
-
 #define MAX_NAME_LEN 32
 #define MAX_LINE_NAME 20
 
@@ -76,13 +76,12 @@ void freeQueue(Queue *q);
 
 // ---------- 主函数 ----------
 int main() {
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
     Graph *g = createGraph(100, 0);  // 无向图
-
     readMetroFile("metro.txt", g);
-
     int choice, start, end;
     char startName[MAX_NAME_LEN], endName[MAX_NAME_LEN];
-
     do {
         printMenu();
         printf("请输入选择：");
@@ -344,14 +343,14 @@ void printAdjList(Graph *g) {
 
 // 打印菜单
 void printMenu() {
-    printf("\n====== 地铁查询系统 ======\n");
-    printf("1. 输出邻接表和换乘站\n");
-    printf("2. DFS 遍历（从指定站点）\n");
-    printf("3. BFS 遍历（从指定站点）\n");
-    printf("4. 连通分量分析\n");
-    printf("5. 最短路径（最少时间）\n");
-    printf("6. 最短路径（最少换乘）\n");
-    printf("0. 退出\n");
+    printf("\n===== Metro Subway Query System =====\n");
+    printf("1. Print adjacency list and transfer stations\n");
+    printf("2. DFS traversal (start from designated station)\n");
+    printf("3. BFS traversal (start from designated station)\n");
+    printf("4. Connected component analysis\n");
+    printf("5. Shortest path (minimum time)\n");
+    printf("6. Shortest path (minimum transfers)\n");
+    printf("0. Exit program\n");
 }
 
 // ---------- 队列实现（已提供）----------
@@ -391,36 +390,208 @@ void freeQueue(Queue *q) {
 
 void DFSRecursive(Graph *g, int v, int *visited) {
     // TODO: 实现递归深度优先遍历
+    visited[v] = 1;
+    printf("%s ", g->vertices[v].name);
+    EdgeNode *e = g->vertices[v].firstEdge;
+    while (e) {
+        int w = e->adjVex;
+        if (!visited[w]) {
+            DFSRecursive(g, w, visited);
+        }
+        e = e->next;
+    }
 }
 
 void DFSTraversal(Graph *g, int start) {
     // TODO: 调用 DFSRecursive 从 start 开始遍历并输出序列
+    if (!g || start < 0 || start >= g->vertexNum) return;
+    int *visited = (int *)calloc(g->vertexNum, sizeof(int));
+    DFSRecursive(g, start, visited);
+    free(visited);
+    printf("\n");
 }
 
 void BFSTraversal(Graph *g, int start) {
     // TODO: 使用队列实现广度优先遍历，输出序列
+    if (!g || start < 0 || start >= g->vertexNum) return;
+    int *visited = (int *)calloc(g->vertexNum, sizeof(int));
+    int *queue = (int *)malloc(g->vertexNum * sizeof(int));
+    int front = 0, rear = 0;
+    visited[start] = 1;
+    queue[rear++] = start;
+    while (front < rear) {
+        int v = queue[front++];
+        printf("%s ", g->vertices[v].name);
+        EdgeNode *e = g->vertices[v].firstEdge;
+        while (e) {
+            int w = e->adjVex;
+            if (!visited[w]) {
+                visited[w] = 1;
+                queue[rear++] = w;
+            }
+            e = e->next;
+        }
+    }
+    free(visited);
+    free(queue);
+    printf("\n");
 }
 
 void connectivityAnalysis(Graph *g) {
     // TODO: 计算并输出连通分量个数及每个分量的站点列表
+    if (!g) return;
+    int *visited = (int *)calloc(g->vertexNum, sizeof(int));
+    int componentCount = 0;
+    for (int i = 0; i < g->vertexNum; i++) {
+        if (!visited[i]) {
+            componentCount++;
+            int *queue = (int *)malloc(g->vertexNum * sizeof(int));
+            int front = 0, rear = 0;
+            visited[i] = 1;
+            queue[rear++] = i;
+            printf("第%d个连通分量站点: ", componentCount);
+            while (front < rear) {
+                int v = queue[front++];
+                printf("%s ", g->vertices[v].name);
+                EdgeNode *e = g->vertices[v].firstEdge;
+                while (e) {
+                    int w = e->adjVex;
+                    if (!visited[w]) {
+                        visited[w] = 1;
+                        queue[rear++] = w;
+                    }
+                    e = e->next;
+                }
+            }
+            printf("\n");
+            free(queue);
+        }
+    }
+    printf("总共有 %d 个连通分量\n", componentCount);
+    free(visited);
 }
 
 void dijkstra(Graph *g, int start, int *dist, int *prev) {
     // TODO: 实现 Dijkstra 算法，计算最短距离和前驱数组
+     if (!g || start < 0 || start >= g->vertexNum) return;
+    int n = g->vertexNum;
+    int *visited = (int *)calloc(n, sizeof(int));
+    for (int i = 0; i < n; i++) {
+        dist[i] = INT_MAX;
+        prev[i] = -1;
+    }
+    dist[start] = 0;
+    for (int count = 0; count < n - 1; count++) {
+        int u = -1, minDist = INT_MAX;
+        for (int i = 0; i < n; i++) {
+            if (!visited[i] && dist[i] < minDist) {
+                minDist = dist[i];
+                u = i;
+            }
+        }
+        if (u == -1) break;
+        visited[u] = 1;
+        EdgeNode *e = g->vertices[u].firstEdge;
+        while (e) {
+            int v = e->adjVex, w = e->weight;
+            if (!visited[v] && dist[u] != INT_MAX && dist[u] + w < dist[v]) {
+                dist[v] = dist[u] + w;
+                prev[v] = u;
+            }
+            e = e->next;
+        }
+    }
+    free(visited);
 }
 
 void printPath(Graph *g, int *prev, int start, int end) {
     // TODO: 递归输出从 start 到 end 的路径
+    if (end == start) {
+        printf("%s", g->vertices[start].name);
+        return;
+    } else if (prev[end] == -1) {
+        printf("无路径");
+        return;
+    } else {
+        printPath(g, prev, start, prev[end]);
+        printf(" -> %s", g->vertices[end].name);
+    }
 }
 
 void shortestPathByTime(Graph *g, int start, int end) {
     // TODO: 使用 dijkstra 输出最少时间路径及总时间
+     if (!g) return;
+    int n = g->vertexNum;
+    int *dist = (int *)malloc(n * sizeof(int));
+    int *prev = (int *)malloc(n * sizeof(int));
+    dijkstra(g, start, dist, prev);
+    if (dist[end] == INT_MAX) {
+        printf("从 %s 到 %s 不可达\n", g->vertices[start].name, g->vertices[end].name);
+    } else {
+        printf("最短时间路径: ");
+        printPath(g, prev, start, end);
+        printf("\n总时间: %d 分钟\n", dist[end]);
+    }
+    free(dist);
+    free(prev);
 }
 
 void shortestPathByTransfer(Graph *g, int start, int end) {
     // TODO: 将边权临时设为1，调用 dijkstra，输出最少换乘路径及换乘次数，然后恢复原权值
+    if (!g) return;
+    int n = g->vertexNum;
+    // 收集所有边并暂存原权重
+    int edgeCount = 0;
+    for (int i = 0; i < n; i++) {
+        EdgeNode *e = g->vertices[i].firstEdge;
+        while (e) { edgeCount++; e = e->next; }
+    }
+    EdgeNode **allEdges = (EdgeNode **)malloc(edgeCount * sizeof(EdgeNode*));
+    int *oldWeights = (int *)malloc(edgeCount * sizeof(int));
+    int idx = 0;
+    for (int i = 0; i < n; i++) {
+        EdgeNode *e = g->vertices[i].firstEdge;
+        while (e) {
+            allEdges[idx] = e;
+            oldWeights[idx] = e->weight;
+            e->weight = 1;
+            idx++;
+            e = e->next;
+        }
+    }
+    int *dist = (int *)malloc(n * sizeof(int));
+    int *prev = (int *)malloc(n * sizeof(int));
+    dijkstra(g, start, dist, prev);
+    if (dist[end] == INT_MAX) {
+        printf("从 %s 到 %s 不可达\n", g->vertices[start].name, g->vertices[end].name);
+    } else {
+        printf("最少换乘路径: ");
+        printPath(g, prev, start, end);
+        int transfer = (start == end) ? 0 : dist[end] - 1;
+        printf("\n换乘次数: %d\n", transfer);
+    }
+    // 恢复原权重
+    for (int i = 0; i < edgeCount; i++) {
+        allEdges[i]->weight = oldWeights[i];
+    }
+    free(dist);
+    free(prev);
+    free(allEdges);
+    free(oldWeights);
 }
 
 void freeGraph(Graph *g) {
     // TODO: 释放所有动态分配的内存（边结点、lineIds、顶点数组、图结构）
+    if (!g) return;
+    for (int i = 0; i < g->vertexNum; i++) {
+        EdgeNode *e = g->vertices[i].firstEdge;
+        while (e) {
+            EdgeNode *tmp = e;
+            e = e->next;
+            free(tmp);
+        }
+    }
+    free(g->vertices);
+    // if (g->lineIds) free(g->lineIds);
+    free(g);
 }
